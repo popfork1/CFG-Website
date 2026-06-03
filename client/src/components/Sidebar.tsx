@@ -3,10 +3,11 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   Home, Zap, Calendar, Trophy, BarChart3, Newspaper,
-  Users, BookOpen, Shield, LogOut, Settings, Clock, Shirt
+  Users, BookOpen, Shield, LogOut, Settings, Clock, Shirt, ScrollText
 } from "lucide-react";
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useTheme } from "@/components/ThemeProvider";
+import { useQuery } from "@tanstack/react-query";
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -37,6 +38,13 @@ export function Sidebar() {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = isAuthenticated && (user as any)?.role === "admin";
 
+  const { data: breakingNews } = useQuery<{ message: string; active: boolean; expiresAt: string | null }>({
+    queryKey: ["/api/settings/breaking-news"],
+    refetchInterval: 10000,
+  });
+
+  const showBanner = !!(breakingNews?.active && breakingNews?.message);
+
   const navItems = [
     { path: "/", label: "Home", icon: Home },
     { path: "/scores", label: "Scores", icon: Zap },
@@ -45,6 +53,7 @@ export function Sidebar() {
     { path: "/standings", label: "Standings", icon: BarChart3 },
     { path: "/teams", label: "Teams", icon: Shirt },
     { path: "/news", label: "News", icon: Newspaper },
+    { path: "/rulebook", label: "Rulebook", icon: ScrollText },
     { path: "/changelogs", label: "Updates", icon: BookOpen },
     { path: "/partners", label: "Partners", icon: Users },
     { path: "/previous-weeks", label: "Archives", icon: Clock },
@@ -52,9 +61,40 @@ export function Sidebar() {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-background/80 backdrop-blur-xl border-b border-border/50 z-[100]">
-      <div className="h-full px-6 flex items-center gap-8">
-        {/* Logo Section */}
+    <header className="fixed top-0 left-0 right-0 z-[100] bg-background/80 backdrop-blur-xl border-b border-border/50">
+      {/* Breaking News Banner — inside header so nav always sits below it */}
+      {showBanner && (
+        <div className="bg-accent text-accent-foreground overflow-hidden border-b border-accent-foreground/10">
+          <div className="py-1.5 px-4">
+            <div className="marquee-container">
+              <div className="marquee-content py-0.5">
+                <span className="font-black italic mr-4 tracking-tighter uppercase">BREAKING:</span>
+                <span className="font-bold">{breakingNews!.message}</span>
+                <span className="mx-12 opacity-50 font-black">///</span>
+                <span className="font-black italic mr-4 tracking-tighter uppercase">BREAKING:</span>
+                <span className="font-bold">{breakingNews!.message}</span>
+                <span className="mx-12 opacity-50 font-black">///</span>
+              </div>
+            </div>
+          </div>
+          <style>{`
+            .marquee-container { width: 100%; overflow: hidden; }
+            .marquee-content {
+              display: inline-block; white-space: nowrap;
+              padding-left: 100%;
+              animation: marquee 25s linear infinite;
+            }
+            @keyframes marquee {
+              0% { transform: translateX(0%); }
+              100% { transform: translateX(-50%); }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Main nav row */}
+      <div className="h-16 px-6 flex items-center gap-8">
+        {/* Logo */}
         <Link href="/">
           <div className="flex items-center gap-2 cursor-pointer group">
             <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg text-primary-foreground font-black text-sm">CFG</div>
@@ -85,7 +125,7 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Actions Section */}
+        {/* Actions */}
         <div className="flex items-center gap-3 ml-auto">
           {isAdmin && (
             <Link href="/admin">
@@ -122,8 +162,8 @@ export function Sidebar() {
           )}
         </div>
       </div>
-      
-      {/* Mobile Horizontal Scroll Nav - Bottom of Header */}
+
+      {/* Mobile Horizontal Scroll Nav */}
       <nav className="lg:hidden flex items-center overflow-x-auto no-scrollbar border-t border-border/50 bg-background/50 backdrop-blur-md h-16 px-4 gap-1">
         <div className="flex items-center gap-2 min-w-max">
           {navItems.map((item) => {

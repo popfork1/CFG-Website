@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar, SidebarProvider, useSidebar } from "@/components/Sidebar";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { BreakingNewsBanner } from "@/components/BreakingNewsBanner";
 import Landing from "@/pages/Landing";
 import LiveScores from "@/pages/LiveScores";
 import GameDetail from "@/pages/GameDetail";
@@ -25,6 +24,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import SocialLinks from "@/pages/SocialLinks";
 import Changelogs from "@/pages/Changelogs";
 import UpdatePlanner from "@/pages/UpdatePlanner";
+import Rulebook from "@/pages/Rulebook";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 import { useEffect, useState } from "react";
@@ -73,7 +73,6 @@ function MainContent() {
 
   return (
     <div className={`min-h-screen bg-background ${preferences.reduceAnimations ? 'reduce-motion' : ''}`}>
-      <BreakingNewsBanner />
       {showSidebar && <Sidebar />}
       
       <main className={`min-h-screen pt-[200px] lg:pt-36 pb-20 md:pb-0 ${preferences.reduceAnimations ? '' : 'transition-all duration-300'}`}>
@@ -97,6 +96,7 @@ function MainContent() {
               <Route path="/social" component={SocialLinks} />
               <Route path="/changelogs" component={Changelogs} />
               <Route path="/update-planner" component={UpdatePlanner} />
+              <Route path="/rulebook" component={Rulebook} />
             </>
           )}
           {isAdmin && <Route path="/admin" component={AdminDashboard} />}
