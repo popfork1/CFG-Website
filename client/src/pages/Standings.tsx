@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, GripVertical, Trophy, Shield, Star } from "lucide-react";
 import { TEAMS } from "@/lib/teams";
 import { Badge } from "@/components/ui/badge";
+import type { Division } from "@shared/schema";
 
 interface StandingsEntry {
   id: string;
@@ -20,7 +21,7 @@ interface StandingsEntry {
   wins: number;
   losses: number;
   pointDifferential?: number;
-  division: "AFC_East" | "AFC_West" | "NFC_East" | "NFC_West";
+  division: string;
   manualOrder?: number;
 }
 
@@ -32,18 +33,13 @@ interface DropZone {
 
 const AVAILABLE_TEAMS = Object.keys(TEAMS).sort();
 
-const CONFERENCES = [
-  { name: "AFC", color: "text-blue-500", bg: "bg-blue-500/5", divisions: [{ id: "AFC_East", label: "East" }, { id: "AFC_West", label: "West" }] },
-  { name: "NFC", color: "text-red-500", bg: "bg-red-500/5", divisions: [{ id: "NFC_East", label: "East" }, { id: "NFC_West", label: "West" }] },
-];
-
 export default function Standings() {
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   const isAdmin = isAuthenticated && (user as any)?.role === "admin";
   const [standings, setStandings] = useState<StandingsEntry[]>([]);
   const [newTeam, setNewTeam] = useState("");
-  const [newDivision, setNewDivision] = useState<"AFC_East" | "AFC_West" | "NFC_East" | "NFC_West" | "">("");
+  const [newDivision, setNewDivision] = useState("");
   const [editingPD, setEditingPD] = useState<Record<string, string | number>>({});
   const [draggedTeam, setDraggedTeam] = useState<string | null>(null);
   const [dropZone, setDropZone] = useState<DropZone | null>(null);
@@ -51,6 +47,10 @@ export default function Standings() {
   const { data: activeSeason } = useActiveSeason();
   const seasonNumber = activeSeason?.number;
   const seasonLabel = activeSeason?.name ?? (seasonNumber != null ? `Season ${seasonNumber}` : null);
+
+  const { data: divisionsData = [], isLoading: divisionsLoading } = useQuery<Division[]>({
+    queryKey: ["/api/divisions"],
+  });
 
   const { data: dbStandings, isLoading } = useQuery({
     queryKey: ["/api/standings", seasonNumber],
@@ -78,6 +78,17 @@ export default function Standings() {
       );
     }
   }, [dbStandings]);
+
+  // Group divisions by conference
+  const conferences = divisionsData.reduce((acc, div) => {
+    if (!acc[div.conference]) {
+      acc[div.conference] = { name: div.conference, color: div.conferenceColor ?? "text-blue-500", divisions: [] };
+    }
+    acc[div.conference].divisions.push(div);
+    return acc;
+  }, {} as Record<string, { name: string; color: string; divisions: Division[] }>);
+
+  const conferenceList = Object.values(conferences).sort((a, b) => a.name.localeCompare(b.name));
 
   const upsertMutation = useMutation({
     mutationFn: async (entry: StandingsEntry) => {
@@ -108,8 +119,8 @@ export default function Standings() {
   const addTeam = () => {
     if (!isAdmin || !newTeam.trim() || !newDivision) return;
     const divisionTeams = standings.filter(s => s.division === newDivision);
-    const maxOrder = divisionTeams.length > 0 
-      ? Math.max(...divisionTeams.map(s => s.manualOrder ?? -1)) 
+    const maxOrder = divisionTeams.length > 0
+      ? Math.max(...divisionTeams.map(s => s.manualOrder ?? -1))
       : -1;
     const newEntry: StandingsEntry = {
       id: Date.now().toString(),
@@ -118,7 +129,7 @@ export default function Standings() {
       wins: 0,
       losses: 0,
       pointDifferential: 0,
-      division: newDivision as any,
+      division: newDivision,
       manualOrder: maxOrder + 1,
     };
     setStandings([...standings, newEntry]);
@@ -144,9 +155,9 @@ export default function Standings() {
     deleteMutation.mutate(id);
   };
 
-  const getDivisionStandings = (division: string) => {
+  const getDivisionStandings = (divisionKey: string) => {
     return [...standings]
-      .filter((entry) => entry.division === division)
+      .filter((entry) => entry.division === divisionKey)
       .sort((a, b) => {
         const aOrder = a.manualOrder ?? 999;
         const bOrder = b.manualOrder ?? 999;
@@ -162,7 +173,7 @@ export default function Standings() {
   const handleDragOver = (e: React.DragEvent, targetTeamId: string) => {
     e.preventDefault();
     if (!draggedTeam || draggedTeam === targetTeamId) return;
-    
+
     const targetEntry = standings.find(s => s.id === targetTeamId);
     if (!targetEntry) return;
 
@@ -181,7 +192,7 @@ export default function Standings() {
 
     const draggedEntry = standings.find(e => e.id === draggedTeam);
     const targetEntry = standings.find(e => e.id === targetTeamId);
-    
+
     if (!draggedEntry || !targetEntry || draggedEntry.division !== targetEntry.division) {
       setDropZone(null);
       return;
@@ -191,14 +202,14 @@ export default function Standings() {
     const filteredItems = divisionItems.filter(item => item.id !== draggedTeam);
     const targetIndex = filteredItems.findIndex(item => item.id === targetTeamId);
     let insertIndex = dropZone?.position === 'below' ? targetIndex + 1 : targetIndex;
-    
+
     filteredItems.splice(insertIndex, 0, draggedEntry);
-    
+
     const reorderedItems = filteredItems.map((item, idx) => ({
       ...item,
       manualOrder: idx,
     }));
-    
+
     setStandings(standings.map(entry => reorderedItems.find(r => r.id === entry.id) || entry));
     reorderedItems.forEach(item => upsertMutation.mutate(item));
     setDropZone(null);
@@ -265,16 +276,16 @@ export default function Standings() {
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Conference Division</Label>
-              <Select value={newDivision} onValueChange={(v) => setNewDivision(v as any)}>
+              <Select value={newDivision} onValueChange={setNewDivision}>
                 <SelectTrigger className="h-12 bg-white/5 border-white/10 rounded-2xl">
                   <SelectValue placeholder="Select Division" />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-border/40">
-                  {CONFERENCES.map((conf) => (
+                  {conferenceList.map((conf) => (
                     <div key={conf.name}>
                       <div className={`text-[10px] font-black uppercase tracking-[0.2em] px-4 py-3 ${conf.color}`}>{conf.name}</div>
                       {conf.divisions.map((div) => (
-                        <SelectItem key={div.id} value={div.id} className="rounded-xl">{div.label}</SelectItem>
+                        <SelectItem key={div.key} value={div.key} className="rounded-xl">{div.label}</SelectItem>
                       ))}
                     </div>
                   ))}
@@ -290,23 +301,22 @@ export default function Standings() {
         </Card>
       )}
 
-      <div className="grid gap-16">
-        {CONFERENCES.map((conference) => (
-          <div key={conference.name} className="space-y-8">
-            <div className="flex items-center gap-6">
-              <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${conference.color}`}>{conference.name} <span className="text-foreground/20">Conference</span></h2>
-              <div className="flex-1 h-px bg-gradient-to-r from-border/50 to-transparent" />
-            </div>
+      {divisionsLoading ? (
+        <div className="text-center py-16 text-muted-foreground/40 font-bold uppercase tracking-widest text-xs">Loading divisions…</div>
+      ) : (
+        <div className="grid gap-16">
+          {conferenceList.map((conference) => (
+            <div key={conference.name} className="space-y-8">
+              <div className="flex items-center gap-6">
+                <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${conference.color}`}>{conference.name} <span className="text-foreground/20">Conference</span></h2>
+                <div className="flex-1 h-px bg-gradient-to-r from-border/50 to-transparent" />
+              </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {(() => {
-                let cumulativeIndex = 0;
-                return conference.divisions.map((division) => {
-                  const divisionStandings = getDivisionStandings(division.id);
-                  const startIndex = cumulativeIndex;
-                  cumulativeIndex += divisionStandings.length;
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {conference.divisions.map((division) => {
+                  const divisionStandings = getDivisionStandings(division.key);
                   return (
-                    <div key={division.id} className="space-y-4">
+                    <div key={division.key} className="space-y-4">
                       <div className="flex items-center gap-3 px-4">
                         <Star className={`w-4 h-4 ${conference.color} fill-current`} />
                         <h3 className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground">{division.label}</h3>
@@ -325,84 +335,90 @@ export default function Standings() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border/20">
-                              {divisionStandings.map((entry, idx) => (
-                                <tr 
-                                  key={entry.id}
-                                  draggable={isAdmin}
-                                  onDragStart={(e) => handleDragStart(e, entry.id)}
-                                  onDragOver={(e) => handleDragOver(e, entry.id)}
-                                  onDrop={(e) => handleDrop(e, entry.id)}
-                                  className={`group hover:bg-white/5 transition-colors relative ${dropZone?.targetId === entry.id ? 'bg-primary/5' : ''}`}
-                                >
-                                  <td className="px-6 py-5 text-center font-black italic text-xl text-white/40">
-                                    {isAdmin ? (
-                                      <div className="flex flex-col items-center gap-1">
-                                        <span className="text-sm not-italic text-white">{idx + 1}</span>
-                                        <GripVertical className="w-4 h-4 mx-auto opacity-0 group-hover:opacity-100 transition-opacity cursor-grab text-white" />
-                                      </div>
-                                    ) : <span className="text-white">{idx + 1}</span>}
-                                  </td>
-                                  <td className="px-6 py-5">
-                                    <div className="flex items-center gap-4">
-                                      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center p-2 group-hover:scale-110 transition-transform">
-                                        <img src={TEAMS[entry.team as keyof typeof TEAMS]} className="w-full h-full object-contain drop-shadow-lg" />
-                                      </div>
-                                      <span className="font-black italic uppercase tracking-tight text-base text-white">{entry.team}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-5 text-center">
-                                    {isAdmin ? (
-                                      <div className="flex items-center justify-center gap-2">
-                                        <Input type="number" value={entry.wins} onChange={(e) => updateEntry(entry.id, "wins", parseInt(e.target.value) || 0)} className="w-12 h-8 text-center bg-white/5 border-none font-bold p-0 text-white" />
-                                        <span className="text-white opacity-30">/</span>
-                                        <Input type="number" value={entry.losses} onChange={(e) => updateEntry(entry.id, "losses", parseInt(e.target.value) || 0)} className="w-12 h-8 text-center bg-white/5 border-none font-bold p-0 text-white" />
-                                      </div>
-                                    ) : (
-                                      <span className="font-black tabular-nums text-lg text-white">{entry.wins}-{entry.losses}</span>
-                                    )}
-                                  </td>
-                                  <td className="px-6 py-5 text-center">
-                                    {isAdmin ? (
-                                      <Input 
-                                        type="text" 
-                                        value={editingPD[entry.id] ?? entry.pointDifferential ?? 0}
-                                        onChange={(e) => setEditingPD({ ...editingPD, [entry.id]: e.target.value })}
-                                        onBlur={(e) => {
-                                          const val = parseInt(e.target.value) || 0;
-                                          updateEntry(entry.id, "pointDifferential", val);
-                                          const newEditingPD = { ...editingPD };
-                                          delete newEditingPD[entry.id];
-                                          setEditingPD(newEditingPD);
-                                        }}
-                                        className="w-14 h-8 mx-auto text-center bg-white/5 border-none font-bold p-0 text-white"
-                                      />
-                                    ) : (
-                                      <span className={`font-bold tabular-nums text-sm ${entry.pointDifferential! >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                        {entry.pointDifferential! > 0 ? '+' : ''}{entry.pointDifferential}
-                                      </span>
-                                    )}
-                                  </td>
-                                  {isAdmin && (
-                                    <td className="px-6 py-5 text-center">
-                                      <Button variant="ghost" size="icon" onClick={() => deleteEntry(entry.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                                        <Trash2 className="w-4 h-4" />
-                                      </Button>
-                                    </td>
-                                  )}
+                              {divisionStandings.length === 0 ? (
+                                <tr>
+                                  <td colSpan={isAdmin ? 5 : 4} className="px-6 py-8 text-center text-muted-foreground/30 text-[10px] font-black uppercase tracking-widest">No teams added</td>
                                 </tr>
-                              ))}
+                              ) : (
+                                divisionStandings.map((entry, idx) => (
+                                  <tr
+                                    key={entry.id}
+                                    draggable={isAdmin}
+                                    onDragStart={(e) => handleDragStart(e, entry.id)}
+                                    onDragOver={(e) => handleDragOver(e, entry.id)}
+                                    onDrop={(e) => handleDrop(e, entry.id)}
+                                    className={`group hover:bg-white/5 transition-colors relative ${dropZone?.targetId === entry.id ? 'bg-primary/5' : ''}`}
+                                  >
+                                    <td className="px-6 py-5 text-center font-black italic text-xl text-white/40">
+                                      {isAdmin ? (
+                                        <div className="flex flex-col items-center gap-1">
+                                          <span className="text-sm not-italic text-white">{idx + 1}</span>
+                                          <GripVertical className="w-4 h-4 mx-auto opacity-0 group-hover:opacity-100 transition-opacity cursor-grab text-white" />
+                                        </div>
+                                      ) : <span className="text-white">{idx + 1}</span>}
+                                    </td>
+                                    <td className="px-6 py-5">
+                                      <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center p-2 group-hover:scale-110 transition-transform">
+                                          <img src={TEAMS[entry.team as keyof typeof TEAMS]} className="w-full h-full object-contain drop-shadow-lg" />
+                                        </div>
+                                        <span className="font-black italic uppercase tracking-tight text-base text-white">{entry.team}</span>
+                                      </div>
+                                    </td>
+                                    <td className="px-6 py-5 text-center">
+                                      {isAdmin ? (
+                                        <div className="flex items-center justify-center gap-2">
+                                          <Input type="number" value={entry.wins} onChange={(e) => updateEntry(entry.id, "wins", parseInt(e.target.value) || 0)} className="w-12 h-8 text-center bg-white/5 border-none font-bold p-0 text-white" />
+                                          <span className="text-white opacity-30">/</span>
+                                          <Input type="number" value={entry.losses} onChange={(e) => updateEntry(entry.id, "losses", parseInt(e.target.value) || 0)} className="w-12 h-8 text-center bg-white/5 border-none font-bold p-0 text-white" />
+                                        </div>
+                                      ) : (
+                                        <span className="font-black tabular-nums text-lg text-white">{entry.wins}-{entry.losses}</span>
+                                      )}
+                                    </td>
+                                    <td className="px-6 py-5 text-center">
+                                      {isAdmin ? (
+                                        <Input
+                                          type="text"
+                                          value={editingPD[entry.id] ?? entry.pointDifferential ?? 0}
+                                          onChange={(e) => setEditingPD({ ...editingPD, [entry.id]: e.target.value })}
+                                          onBlur={(e) => {
+                                            const val = parseInt(e.target.value) || 0;
+                                            updateEntry(entry.id, "pointDifferential", val);
+                                            const newEditingPD = { ...editingPD };
+                                            delete newEditingPD[entry.id];
+                                            setEditingPD(newEditingPD);
+                                          }}
+                                          className="w-14 h-8 mx-auto text-center bg-white/5 border-none font-bold p-0 text-white"
+                                        />
+                                      ) : (
+                                        <span className={`font-bold tabular-nums text-sm ${entry.pointDifferential! >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                          {entry.pointDifferential! > 0 ? '+' : ''}{entry.pointDifferential}
+                                        </span>
+                                      )}
+                                    </td>
+                                    {isAdmin && (
+                                      <td className="px-6 py-5 text-center">
+                                        <Button variant="ghost" size="icon" onClick={() => deleteEntry(entry.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </td>
+                                    )}
+                                  </tr>
+                                ))
+                              )}
                             </tbody>
                           </table>
                         </div>
                       </Card>
                     </div>
                   );
-                });
-              })()}
+                })}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

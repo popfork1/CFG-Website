@@ -520,6 +520,25 @@ export const insertGamePlaySchema = createInsertSchema(gamePlays).omit({
 export type InsertGamePlay = z.infer<typeof insertGamePlaySchema>;
 export type GamePlay = typeof gamePlays.$inferSelect;
 
+// Divisions table (dynamic conference/division structure)
+export const divisions = pgTable("divisions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key", { length: 50 }).notNull().unique(), // stored value e.g. "AFC_East"
+  label: varchar("label", { length: 100 }).notNull(), // display name e.g. "East"
+  conference: varchar("conference", { length: 50 }).notNull(), // e.g. "AFC"
+  conferenceColor: varchar("conference_color", { length: 50 }).default("text-blue-500"), // tailwind text color
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertDivisionSchema = createInsertSchema(divisions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDivision = z.infer<typeof insertDivisionSchema>;
+export type Division = typeof divisions.$inferSelect;
+
 // Seasons table
 export const seasons = pgTable("seasons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

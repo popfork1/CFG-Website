@@ -23,6 +23,7 @@ import {
   gamePlays,
   seasons,
   weekConfigs,
+  divisions,
   type User,
   type UpsertUser,
   type Game,
@@ -71,6 +72,8 @@ import {
   type InsertSeason,
   type WeekConfig,
   type InsertWeekConfig,
+  type Division,
+  type InsertDivision,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -95,6 +98,11 @@ export interface IStorage {
   getChatMessages(gameId?: string, limit?: number): Promise<ChatMessage[]>;
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   
+  getAllDivisions(): Promise<Division[]>;
+  createDivision(division: InsertDivision): Promise<Division>;
+  updateDivision(id: string, division: Partial<Division>): Promise<Division>;
+  deleteDivision(id: string): Promise<void>;
+
   getAllPickems(): Promise<Pickem[]>;
   getPickemByWeek(week: number): Promise<Pickem | undefined>;
   createPickem(pickem: InsertPickem): Promise<Pickem>;
@@ -262,9 +270,11 @@ export class DatabaseStorage implements IStorage {
   async getCurrentWeekGames(): Promise<Game[]> {
     const allGames = await db.select().from(games).orderBy(desc(games.week));
     if (allGames.length === 0) return [];
-    
-    const latestSeason = 2;
-    const seasonGames = allGames.filter(g => (g.season ?? 1) === latestSeason);
+
+    // Dynamically determine the active season
+    const activeSeason = await this.getActiveSeason();
+    const activeSeasonNumber = activeSeason?.number ?? 1;
+    const seasonGames = allGames.filter(g => (g.season ?? 1) === activeSeasonNumber);
     if (seasonGames.length === 0) return [];
 
     // 1. If there are live games, show those
@@ -313,7 +323,8 @@ export class DatabaseStorage implements IStorage {
   async createGame(gameData: InsertGame): Promise<Game> {
     const cleanData = cleanObject(gameData);
     if (cleanData.season === undefined || cleanData.season === null) {
-      cleanData.season = 2;
+      const activeSeason = await this.getActiveSeason();
+      cleanData.season = activeSeason?.number ?? 1;
     }
     const [game] = await db.insert(games).values(cleanData as InsertGame).returning();
     return game;
@@ -964,6 +975,25 @@ export class DatabaseStorage implements IStorage {
   async archiveSeason(id: string): Promise<Season> {
     const [updated] = await db.update(seasons).set({ status: "archived", updatedAt: new Date() }).where(eq(seasons.id, id)).returning();
     return updated;
+  }
+
+  // Divisions management
+  async getAllDivisions(): Promise<Division[]> {
+    return db.select().from(divisions).orderBy(divisions.sortOrder, divisions.conference, divisions.label);
+  }
+
+  async createDivision(divisionData: InsertDivision): Promise<Division> {
+    const [created] = await db.insert(divisions).values(divisionData).returning();
+    return created;
+  }
+
+  async updateDivision(id: string, divisionData: Partial<Division>): Promise<Division> {
+    const [updated] = await db.update(divisions).set(divisionData).where(eq(divisions.id, id)).returning();
+    return updated;
+  }
+
+  async deleteDivision(id: string): Promise<void> {
+    await db.delete(divisions).where(eq(divisions.id, id));
   }
 
   // Week config management

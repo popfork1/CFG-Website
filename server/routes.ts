@@ -1458,6 +1458,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ===================== DIVISIONS MANAGEMENT =====================
+
+  app.get("/api/divisions", async (_req, res) => {
+    try {
+      const all = await storage.getAllDivisions();
+      res.json(all);
+    } catch (error) {
+      console.error("Error fetching divisions:", error);
+      res.status(500).json({ message: "Failed to fetch divisions" });
+    }
+  });
+
+  app.post("/api/divisions", isAuthenticated, async (req: any, res) => {
+    if (req.session?.role !== "admin") return res.status(403).json({ message: "Admin only" });
+    try {
+      const { key, label, conference, conferenceColor, sortOrder } = req.body;
+      if (!key || !label || !conference) return res.status(400).json({ message: "key, label, and conference are required" });
+      const division = await storage.createDivision({ key, label, conference, conferenceColor: conferenceColor || "text-blue-500", sortOrder: sortOrder ?? 0 });
+      res.json(division);
+    } catch (error: any) {
+      console.error("Error creating division:", error);
+      res.status(500).json({ message: error?.message || "Failed to create division" });
+    }
+  });
+
+  app.patch("/api/divisions/:id", isAuthenticated, async (req: any, res) => {
+    if (req.session?.role !== "admin") return res.status(403).json({ message: "Admin only" });
+    try {
+      const { label, conference, conferenceColor, sortOrder } = req.body;
+      const updated = await storage.updateDivision(req.params.id, {
+        ...(label !== undefined && { label }),
+        ...(conference !== undefined && { conference }),
+        ...(conferenceColor !== undefined && { conferenceColor }),
+        ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+      });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating division:", error);
+      res.status(500).json({ message: "Failed to update division" });
+    }
+  });
+
+  app.delete("/api/divisions/:id", isAuthenticated, async (req: any, res) => {
+    if (req.session?.role !== "admin") return res.status(403).json({ message: "Admin only" });
+    try {
+      await storage.deleteDivision(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting division:", error);
+      res.status(500).json({ message: "Failed to delete division" });
+    }
+  });
+
   // ===================== SEASON MANAGEMENT =====================
 
   async function ensureSeasonsSeeded() {

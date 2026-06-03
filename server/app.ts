@@ -364,6 +364,32 @@ export default async function runApp(
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `;
+
+      // Create divisions table
+      await rawSql`
+        CREATE TABLE IF NOT EXISTS divisions (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          key VARCHAR(50) NOT NULL UNIQUE,
+          label VARCHAR(100) NOT NULL,
+          conference VARCHAR(50) NOT NULL,
+          conference_color VARCHAR(50) DEFAULT 'text-blue-500',
+          sort_order INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `;
+
+      // Seed default divisions if none exist
+      const divCount = await rawSql`SELECT COUNT(*) FROM divisions`;
+      if (divCount[0].count === '0') {
+        await rawSql`
+          INSERT INTO divisions (key, label, conference, conference_color, sort_order) VALUES
+            ('AFC_East', 'East', 'AFC', 'text-blue-500', 0),
+            ('AFC_West', 'West', 'AFC', 'text-blue-500', 1),
+            ('NFC_East', 'East', 'NFC', 'text-red-500', 2),
+            ('NFC_West', 'West', 'NFC', 'text-red-500', 3)
+          ON CONFLICT (key) DO NOTHING
+        `;
+      }
       
       // Create bets table
       await rawSql`
