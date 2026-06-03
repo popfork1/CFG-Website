@@ -82,7 +82,7 @@ export default function Standings() {
   // Group divisions by conference
   const conferences = divisionsData.reduce((acc, div) => {
     if (!acc[div.conference]) {
-      acc[div.conference] = { name: div.conference, color: div.conferenceColor ?? "text-blue-500", divisions: [] };
+      acc[div.conference] = { name: div.conference, color: div.conferenceColor ?? "#3b82f6", divisions: [] };
     }
     acc[div.conference].divisions.push(div);
     return acc;
@@ -308,7 +308,7 @@ export default function Standings() {
           {conferenceList.map((conference) => (
             <div key={conference.name} className="space-y-8">
               <div className="flex items-center gap-6">
-                <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${conference.color}`}>{conference.name} <span className="text-foreground/20">Conference</span></h2>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter" style={{ color: conference.color }}>{conference.name} <span className="text-foreground/20">Conference</span></h2>
                 <div className="flex-1 h-px bg-gradient-to-r from-border/50 to-transparent" />
               </div>
 
@@ -318,7 +318,7 @@ export default function Standings() {
                   return (
                     <div key={division.key} className="space-y-4">
                       <div className="flex items-center gap-3 px-4">
-                        <Star className={`w-4 h-4 ${conference.color} fill-current`} />
+                        <Star className="w-4 h-4 fill-current" style={{ color: conference.color }} />
                         <h3 className="text-sm font-black uppercase tracking-[0.3em] text-muted-foreground">{division.label}</h3>
                       </div>
 

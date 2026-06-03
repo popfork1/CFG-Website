@@ -172,9 +172,9 @@ function GamesManager() {
       }));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ predicate: (query) => {
+      queryClient.resetQueries({ predicate: (query) => {
         const key = query.queryKey;
-        return typeof key[0] === 'string' && key[0]?.startsWith('/api/games');
+        return typeof key[0] === 'string' && (key[0] as string)?.startsWith('/api/games');
       }});
       toast({ title: "Success", description: "Week scheduled successfully" });
       setGamesList([{ team1: "", team2: "", date: "", time: "", isPrimetime: false }]);
@@ -2003,16 +2003,13 @@ function SettingsManager() {
 
 function DivisionsManager() {
   const { toast } = useToast();
-  const [newKey, setNewKey] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newConference, setNewConference] = useState("");
-  const [newColor, setNewColor] = useState("text-blue-500");
-  const [newSortOrder, setNewSortOrder] = useState(0);
+  const [newColor, setNewColor] = useState("#3b82f6");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editConference, setEditConference] = useState("");
-  const [editColor, setEditColor] = useState("text-blue-500");
-  const [editSortOrder, setEditSortOrder] = useState(0);
+  const [editColor, setEditColor] = useState("#3b82f6");
 
   const { data: divisionsList = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/divisions"],
@@ -2021,20 +2018,16 @@ function DivisionsManager() {
   const createMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/divisions", {
-        key: newKey.trim(),
         label: newLabel.trim(),
         conference: newConference.trim(),
         conferenceColor: newColor,
-        sortOrder: newSortOrder,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/divisions"] });
-      setNewKey("");
       setNewLabel("");
       setNewConference("");
-      setNewColor("text-blue-500");
-      setNewSortOrder(0);
+      setNewColor("#3b82f6");
       toast({ title: "Division created" });
     },
     onError: (e: any) => {
@@ -2048,7 +2041,6 @@ function DivisionsManager() {
         label: editLabel,
         conference: editConference,
         conferenceColor: editColor,
-        sortOrder: editSortOrder,
       });
     },
     onSuccess: () => {
@@ -2078,19 +2070,20 @@ function DivisionsManager() {
     setEditingId(div.id);
     setEditLabel(div.label);
     setEditConference(div.conference);
-    setEditColor(div.conferenceColor ?? "text-blue-500");
-    setEditSortOrder(div.sortOrder ?? 0);
+    setEditColor(div.conferenceColor ?? "#3b82f6");
   };
 
   const COLOR_OPTIONS = [
-    { label: "Blue", value: "text-blue-500" },
-    { label: "Red", value: "text-red-500" },
-    { label: "Green", value: "text-green-500" },
-    { label: "Yellow", value: "text-yellow-500" },
-    { label: "Purple", value: "text-purple-500" },
-    { label: "Orange", value: "text-orange-500" },
-    { label: "Cyan", value: "text-cyan-500" },
-    { label: "Pink", value: "text-pink-500" },
+    { label: "Blue", value: "#3b82f6" },
+    { label: "Red", value: "#ef4444" },
+    { label: "Green", value: "#22c55e" },
+    { label: "Yellow", value: "#eab308" },
+    { label: "Purple", value: "#a855f7" },
+    { label: "Orange", value: "#f97316" },
+    { label: "Cyan", value: "#06b6d4" },
+    { label: "Pink", value: "#ec4899" },
+    { label: "White", value: "#ffffff" },
+    { label: "Gold", value: "#f59e0b" },
   ];
 
   const grouped = divisionsList.reduce((acc: Record<string, any[]>, div: any) => {
@@ -2099,6 +2092,16 @@ function DivisionsManager() {
     acc[conf].push(div);
     return acc;
   }, {});
+
+  const ColorSwatch = ({ color, selected, onClick }: { color: string; selected: boolean; onClick: () => void }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-7 h-7 rounded-lg border-2 transition-all ${selected ? "border-white scale-110 shadow-lg" : "border-transparent hover:border-white/50"}`}
+      style={{ backgroundColor: color }}
+      data-testid={`swatch-${color}`}
+    />
+  );
 
   return (
     <div className="space-y-10">
@@ -2109,17 +2112,7 @@ function DivisionsManager() {
 
       <Card className="p-8 bg-white/5 border-border/30 rounded-[32px] space-y-6">
         <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Add New Division</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Key (unique ID)</label>
-            <input
-              className="w-full h-10 px-4 rounded-xl bg-white/5 border border-white/10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
-              placeholder="e.g. AFC_East"
-              value={newKey}
-              onChange={e => setNewKey(e.target.value)}
-              data-testid="input-division-key"
-            />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Display Label</label>
             <input
@@ -2140,35 +2133,20 @@ function DivisionsManager() {
               data-testid="input-division-conference"
             />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Conference Color</label>
-            <Select value={newColor} onValueChange={setNewColor}>
-              <SelectTrigger className="h-10 bg-white/5 border-white/10 rounded-xl" data-testid="select-division-color">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {COLOR_OPTIONS.map(c => (
-                  <SelectItem key={c.value} value={c.value}>
-                    <span className={`font-bold ${c.value}`}>{c.label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-2 sm:col-span-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              Conference Color <span style={{ color: newColor }}>({COLOR_OPTIONS.find(c => c.value === newColor)?.label ?? newColor})</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {COLOR_OPTIONS.map(c => (
+                <ColorSwatch key={c.value} color={c.value} selected={newColor === c.value} onClick={() => setNewColor(c.value)} />
+              ))}
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Sort Order</label>
-            <input
-              type="number"
-              className="w-full h-10 px-4 rounded-xl bg-white/5 border border-white/10 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
-              value={newSortOrder}
-              onChange={e => setNewSortOrder(parseInt(e.target.value) || 0)}
-              data-testid="input-division-sort"
-            />
-          </div>
-          <div className="flex items-end">
+          <div className="sm:col-span-2">
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={!newKey || !newLabel || !newConference || createMutation.isPending}
+              disabled={!newLabel || !newConference || createMutation.isPending}
               className="w-full h-10 rounded-xl font-black uppercase tracking-widest text-xs"
               data-testid="button-add-division"
             >
@@ -2188,32 +2166,29 @@ function DivisionsManager() {
             <div key={conf} className="space-y-4">
               <h3 className="text-base font-black italic uppercase tracking-tight text-muted-foreground">{conf} Conference</h3>
               <div className="space-y-3">
-                {(divs as any[]).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((div: any) => (
+                {(divs as any[]).sort((a, b) => a.label.localeCompare(b.label)).map((div: any) => (
                   <Card key={div.id} className="p-5 bg-white/5 border-border/30 rounded-2xl">
                     {editingId === div.id ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Label</label>
-                          <input className="w-full h-9 px-3 rounded-lg bg-white/5 border border-white/10 text-sm font-bold focus:outline-none" value={editLabel} onChange={e => setEditLabel(e.target.value)} />
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Label</label>
+                            <input className="w-full h-9 px-3 rounded-lg bg-white/5 border border-white/10 text-sm font-bold focus:outline-none" value={editLabel} onChange={e => setEditLabel(e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Conference</label>
+                            <input className="w-full h-9 px-3 rounded-lg bg-white/5 border border-white/10 text-sm font-bold focus:outline-none" value={editConference} onChange={e => setEditConference(e.target.value)} />
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Conference</label>
-                          <input className="w-full h-9 px-3 rounded-lg bg-white/5 border border-white/10 text-sm font-bold focus:outline-none" value={editConference} onChange={e => setEditConference(e.target.value)} />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Color</label>
-                          <Select value={editColor} onValueChange={setEditColor}>
-                            <SelectTrigger className="h-9 bg-white/5 border-white/10 rounded-lg text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              {COLOR_OPTIONS.map(c => (
-                                <SelectItem key={c.value} value={c.value}>
-                                  <span className={`font-bold ${c.value}`}>{c.label}</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                            Color <span style={{ color: editColor }}>({COLOR_OPTIONS.find(c => c.value === editColor)?.label ?? editColor})</span>
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {COLOR_OPTIONS.map(c => (
+                              <ColorSwatch key={c.value} color={c.value} selected={editColor === c.value} onClick={() => setEditColor(c.value)} />
+                            ))}
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" onClick={() => updateMutation.mutate(div.id)} disabled={updateMutation.isPending} className="flex-1 rounded-lg font-black text-xs uppercase">Save</Button>
@@ -2223,12 +2198,14 @@ function DivisionsManager() {
                     ) : (
                       <div className="flex items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                          <div className={`text-xs font-black uppercase tracking-widest ${div.conferenceColor ?? "text-blue-500"} w-8`}>{div.conference}</div>
+                          <div
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: div.conferenceColor ?? "#3b82f6" }}
+                          />
                           <div>
-                            <div className="font-black italic uppercase tracking-tight">{div.label}</div>
-                            <div className="text-[10px] font-mono text-muted-foreground/50">{div.key}</div>
+                            <div className="font-black italic uppercase tracking-tight" style={{ color: div.conferenceColor ?? "#3b82f6" }}>{div.conference}</div>
+                            <div className="text-sm font-bold">{div.label}</div>
                           </div>
-                          <div className="text-[9px] text-muted-foreground/30 font-bold uppercase tracking-widest">Order: {div.sortOrder}</div>
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" variant="outline" onClick={() => startEdit(div)} className="rounded-lg text-xs font-black uppercase" data-testid={`button-edit-division-${div.id}`}>Edit</Button>

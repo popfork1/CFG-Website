@@ -759,8 +759,8 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async deleteUpdatePlan(id: string): Promise<void> {
-    await db.delete(updatePlans).where(eq(updatePlans.id, id));
+  async deleteUpdatePlan(dateStr: string): Promise<void> {
+    await db.delete(updatePlans).where(eq(updatePlans.updateDate, dateStr));
   }
 
   async getAllTeams(): Promise<Team[]> {

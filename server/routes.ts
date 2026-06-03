@@ -1256,8 +1256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only admins can manage update plans" });
       }
       
-      const { updateDate } = req.body;
-      const plan = await storage.upsertUpdatePlan({ updateDate });
+      const { updateDate, message } = req.body;
+      const plan = await storage.upsertUpdatePlan({ updateDate, message: message || null });
       res.json(plan);
     } catch (error) {
       console.error("Error creating/updating update plan:", error);
@@ -1473,9 +1473,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/divisions", isAuthenticated, async (req: any, res) => {
     if (req.session?.role !== "admin") return res.status(403).json({ message: "Admin only" });
     try {
-      const { key, label, conference, conferenceColor, sortOrder } = req.body;
-      if (!key || !label || !conference) return res.status(400).json({ message: "key, label, and conference are required" });
-      const division = await storage.createDivision({ key, label, conference, conferenceColor: conferenceColor || "text-blue-500", sortOrder: sortOrder ?? 0 });
+      const { label, conference, conferenceColor } = req.body;
+      if (!label || !conference) return res.status(400).json({ message: "label and conference are required" });
+      // Auto-generate a unique key from conference + label
+      const baseKey = `${conference.trim()}_${label.trim().replace(/\s+/g, '_')}`;
+      const existing = await storage.getAllDivisions();
+      let key = baseKey;
+      let counter = 2;
+      while (existing.some(d => d.key === key)) { key = `${baseKey}_${counter++}`; }
+      const division = await storage.createDivision({ key, label, conference, conferenceColor: conferenceColor || "#3b82f6", sortOrder: 0 });
       res.json(division);
     } catch (error: any) {
       console.error("Error creating division:", error);

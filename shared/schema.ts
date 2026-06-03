@@ -335,6 +335,7 @@ export type UserPreference = typeof userPreferences.$inferSelect;
 export const updatePlans = pgTable("update_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   updateDate: varchar("update_date").notNull().unique(),
+  message: varchar("message", { length: 500 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

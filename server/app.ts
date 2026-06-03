@@ -365,6 +365,9 @@ export default async function runApp(
         )
       `;
 
+      // Add message column to update_plans if not exists
+      await rawSql`ALTER TABLE update_plans ADD COLUMN IF NOT EXISTS message VARCHAR(500)`;
+
       // Create divisions table
       await rawSql`
         CREATE TABLE IF NOT EXISTS divisions (
@@ -383,13 +386,22 @@ export default async function runApp(
       if (divCount[0].count === '0') {
         await rawSql`
           INSERT INTO divisions (key, label, conference, conference_color, sort_order) VALUES
-            ('AFC_East', 'East', 'AFC', 'text-blue-500', 0),
-            ('AFC_West', 'West', 'AFC', 'text-blue-500', 1),
-            ('NFC_East', 'East', 'NFC', 'text-red-500', 2),
-            ('NFC_West', 'West', 'NFC', 'text-red-500', 3)
+            ('AFC_East', 'East', 'AFC', '#3b82f6', 0),
+            ('AFC_West', 'West', 'AFC', '#3b82f6', 1),
+            ('NFC_East', 'East', 'NFC', '#ef4444', 2),
+            ('NFC_West', 'West', 'NFC', '#ef4444', 3)
           ON CONFLICT (key) DO NOTHING
         `;
       }
+      // Migrate old Tailwind class color strings to hex values
+      await rawSql`UPDATE divisions SET conference_color = '#3b82f6' WHERE conference_color = 'text-blue-500'`;
+      await rawSql`UPDATE divisions SET conference_color = '#ef4444' WHERE conference_color = 'text-red-500'`;
+      await rawSql`UPDATE divisions SET conference_color = '#22c55e' WHERE conference_color = 'text-green-500'`;
+      await rawSql`UPDATE divisions SET conference_color = '#eab308' WHERE conference_color = 'text-yellow-500'`;
+      await rawSql`UPDATE divisions SET conference_color = '#a855f7' WHERE conference_color = 'text-purple-500'`;
+      await rawSql`UPDATE divisions SET conference_color = '#f97316' WHERE conference_color = 'text-orange-500'`;
+      await rawSql`UPDATE divisions SET conference_color = '#06b6d4' WHERE conference_color = 'text-cyan-500'`;
+      await rawSql`UPDATE divisions SET conference_color = '#ec4899' WHERE conference_color = 'text-pink-500'`;
       
       // Create bets table
       await rawSql`
