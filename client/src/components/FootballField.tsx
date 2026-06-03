@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import type { GamePlay, Game } from "@shared/schema";
 import { motion } from "framer-motion";
-import fieldBg from "@assets/Football_field_diagram_1767142475671.webp";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface FootballFieldProps {
@@ -101,7 +100,8 @@ export function FootballField({ plays, team1, team2, team1Score, team2Score, onP
         ref={fieldRef}
         className="relative w-full aspect-[16/9] bg-cover bg-center"
         style={{ 
-          backgroundImage: `url(${fieldBg})`,
+          backgroundColor: "#2d6a2d",
+          backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 9%, rgba(255,255,255,0.15) 9%, rgba(255,255,255,0.15) 10%)",
           contain: "layout style paint",
         } as any}
       >
