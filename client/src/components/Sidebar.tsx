@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useTheme } from "@/components/ThemeProvider";
-import cfgLogo from "@assets/image_1780452700985.png";
 
 interface SidebarContextType {
   collapsed: boolean;
@@ -58,7 +57,7 @@ export function Sidebar() {
         {/* Logo Section */}
         <Link href="/">
           <div className="flex items-center gap-2 cursor-pointer group">
-            <img src={cfgLogo} alt="CFG" className="h-9 w-9 rounded-lg object-cover group-hover:scale-110 transition-transform shadow-lg" />
+            <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg text-primary-foreground font-black text-sm">CFG</div>
             <h1 className="text-xl font-black tracking-tight uppercase italic">CFG</h1>
           </div>
         </Link>
