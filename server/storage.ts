@@ -113,6 +113,7 @@ export interface IStorage {
   
   getAllStandings(): Promise<Standings[]>;
   upsertStandings(standing: InsertStandings): Promise<Standings>;
+  updateStanding(id: string, data: Partial<InsertStandings>): Promise<Standings>;
   deleteStandings(id: string): Promise<void>;
   
   getAllPlayoffMatches(): Promise<PlayoffMatch[]>;
@@ -481,6 +482,15 @@ export class DatabaseStorage implements IStorage {
 
     const [created] = await db.insert(standings).values(cleanData as InsertStandings).returning();
     return created;
+  }
+
+  async updateStanding(id: string, data: Partial<InsertStandings>): Promise<Standings> {
+    const [updated] = await db
+      .update(standings)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(standings.id, id))
+      .returning();
+    return updated;
   }
 
   async deleteStandings(id: string): Promise<void> {

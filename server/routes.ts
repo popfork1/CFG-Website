@@ -75,7 +75,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/games", async (req, res) => {
     try {
       const seasonStr = req.query.season as string;
-      const season = seasonStr ? parseInt(seasonStr) : 2;
+      const activeSeason = await storage.getActiveSeason();
+      const season = seasonStr ? parseInt(seasonStr) : (activeSeason?.number ?? 1);
       const games = await storage.getAllGames();
       res.json(games.filter(g => (g.season ?? 1) === season));
     } catch (error) {
@@ -87,9 +88,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/games/all", async (req, res) => {
     try {
       const seasonStr = req.query.season as string;
-      const season = seasonStr ? parseInt(seasonStr) : 2;
-      const games = await storage.getAllGames();
-      res.json(games.filter(g => (g.season ?? 1) === season));
+      const activeSeason = await storage.getActiveSeason();
+      const season = seasonStr ? parseInt(seasonStr) : (activeSeason?.number ?? 1);
+      const allGames = await storage.getAllGames();
+      res.json(allGames.filter(g => (g.season ?? 1) === season));
     } catch (error) {
       console.error("Error fetching all games:", error);
       res.status(500).json({ message: "Failed to fetch games" });
@@ -100,7 +102,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const week = parseInt(req.params.week);
       const seasonStr = req.query.season as string;
-      const season = seasonStr ? parseInt(seasonStr) : 2;
+      const activeSeason = await storage.getActiveSeason();
+      const season = seasonStr ? parseInt(seasonStr) : (activeSeason?.number ?? 1);
       const games = await storage.getGamesByWeek(week);
       res.json(games.filter(g => (g.season ?? 1) === season));
     } catch (error) {
@@ -112,7 +115,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/games/current", async (req, res) => {
     try {
       const seasonStr = req.query.season as string;
-      const season = seasonStr ? parseInt(seasonStr) : 2;
+      const activeSeason = await storage.getActiveSeason();
+      const season = seasonStr ? parseInt(seasonStr) : (activeSeason?.number ?? 1);
       const games = await storage.getCurrentWeekGames();
       res.json(games.filter(g => (g.season ?? 1) === season));
     } catch (error) {
@@ -319,9 +323,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/standings", async (req, res) => {
     try {
       const seasonStr = req.query.season as string;
-      const season = seasonStr ? parseInt(seasonStr) : 2;
-      const standings = await storage.getAllStandings();
-      res.json(standings.filter(s => (s.season ?? 1) === season));
+      let season: number;
+      if (seasonStr) {
+        season = parseInt(seasonStr);
+      } else {
+        const activeSeason = await storage.getActiveSeason();
+        season = activeSeason?.number ?? 1;
+      }
+      const allStandings = await storage.getAllStandings();
+      res.json(allStandings.filter(s => (s.season ?? 1) === season));
     } catch (error) {
       console.error("Error fetching standings:", error);
       res.status(500).json({ message: "Failed to fetch standings" });
@@ -341,6 +351,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error upserting standing:", error);
       res.status(400).json({ message: "Failed to save standings. You do not have the proper roles to edit the standings." });
+    }
+  });
+
+  app.patch("/api/standings/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const role = req.session?.role;
+      if (role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const { wins, losses, pointDifferential } = req.body;
+      const updated = await storage.updateStanding(req.params.id, { wins, losses, pointDifferential });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating standing:", error);
+      res.status(400).json({ message: "Failed to update standing" });
     }
   });
 
